@@ -1,93 +1,164 @@
-# telemetrylib
+# TelemetryLib
 
-
+`telemetrylib` is a Go library designed to streamline the integration of OpenTelemetry into your Go applications. It
+provides a unified approach to setting up observability, including metrics, logs, and traces, helping you maintain and
+troubleshoot systems effectively.
 
 ## Getting started
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+### Installation
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+To install telemetrylib, use the following go get command:
 
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/chirpwireless/backend/telemetrylib.git
-git branch -M main
-git push -uf origin main
+```shell
+go get gitlab.com/chirpwireless/backend/telemetrylib
 ```
 
-## Integrate with your tools
+### Basic Setup
 
-- [ ] [Set up project integrations](https://gitlab.com/chirpwireless/backend/telemetrylib/-/settings/integrations)
+To integrate `telemetrylib` into your application, place the following code at the beginning of your `main` function:
 
-## Collaborate with your team
+```go
+otelShutdown, err := telemetrylib.SetupOTelSDK(ctx)
+if err != nil {
+    panic("Error initializing Otel SDK " + err.Error())
+}
+defer func () {
+    err = errors.Join(err, otelShutdown(ctx))
+}()
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+**Explanation**
 
-## Test and Deploy
+- `SetupOTelSDK`: This function initializes the OpenTelemetry SDK, setting up metrics, logs, and trace collectors.
+- `otelShutdown`: Ensures that all telemetry data is flushed and resources are cleaned up when your application shuts
+  down.
 
-Use the built-in continuous integration in GitLab.
+### Gin Integration
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+If you're using the Gin framework, you can integrate OpenTelemetry by adding the following middleware:
 
-***
+- Install the library:
 
-# Editing this README
+```shell
+go get github.com/Cyprinus12138/otelgin
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+- Add the middleware after creating a new instance of Gin:
 
-## Suggestions for a good README
+```go
+root.Use(otelgin.Middleware("<service_name>"))
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+**Explanation**
 
-## Name
-Choose a self-explaining name for your project.
+- `otelgin.Middleware`: This middleware enables traces and metrics for HTTP requests handled by Gin, allowing you to
+  monitor incoming and outgoing requests.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### HTTP Client Integration
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+To instrument external HTTP service calls, follow these steps:
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- Install the library:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```shell
+go get go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+- Set up the HTTP client after initializing the OpenTelemetry SDK:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```go
+http.DefaultClient = &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+**Explanation**
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+- `otelhttp.NewTransport`: This wraps the default HTTP transport, enabling trace and metrics propagation for HTTP client
+  requests.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### gRPC Client Integration
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+For gRPC client instrumentation, use the following steps:
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+- Install the library:
 
-## License
-For open source projects, say how it is licensed.
+```shell
+go get go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- Include the interceptor in your gRPC client:
+
+```go
+opts = append(opts, grpc.WithStatsHandler(otelgrpc.NewClientHandler()))
+```
+
+**Explanation**
+
+- `otelgrpc.NewClientHandler`: This handler allows you to trace gRPC client requests, providing insights into outgoing
+  gRPC traffic.
+
+### gRPC Server Integration
+
+To instrument a gRPC server, follow these steps:
+
+- Install the library:
+
+```shell
+go get go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc
+```
+
+- Initialize your gRPC server with the appropriate handler:
+
+```go
+grpc.NewServer(grpc.StatsHandler(otelgrpc.NewServerHandler()))
+```
+
+**Explanation**
+
+- `otelgrpc.NewServerHandler`: This handler enables tracing of incoming gRPC requests, allowing you to monitor
+  server-side gRPC interactions.
+
+### SQL Database Integration
+
+For SQL database instrumentation, use the following steps:
+
+Install the library:
+
+```shell
+go get github.com/XSAM/otelsql
+```
+
+Initialize your database instance:
+
+```go
+driverName, err := otelsql.Register("postgres", otelsql.WithSpanOptions(otelsql.SpanOptions{
+        OmitConnResetSession: true,
+    }),
+    otelsql.WithSQLCommenter(true),
+)
+if err != nil {
+    return err
+}
+
+db, err := sql.Open(driverName, settings.Instance().PostgresUrl)
+if err != nil {
+    return err
+}
+
+dbinst := sqlx.NewDb(db, "postgres")
+```
+
+**Explanation**
+
+- `otelsql.Register`: Registers a new SQL driver with tracing capabilities, allowing you to capture SQL query execution
+  details.
+
+## Limitations
+
+Currently, Go lacks robust auto-instrumentation capabilities compared to languages like Java or Node.js. The manual
+steps outlined above are necessary to achieve comprehensive instrumentation. However, the Go auto-instrumentation
+feature is in alpha, and future updates may simplify this process once it becomes stable.
+
+For more information, refer to
+the [OpenTelemetry Go Instrumentation GitHub repository](https://github.com/open-telemetry/opentelemetry-go-instrumentation).
+
