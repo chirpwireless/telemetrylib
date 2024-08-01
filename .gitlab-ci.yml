@@ -1,0 +1,25 @@
+image: registry.gitlab.com/chirpwireless/infra/images/builder:main-latest
+
+stages:
+  - lint
+  - test
+  - build
+
+run_lint:
+  image: golangci/golangci-lint:v1.59.1-alpine
+  tags: ["meshplus"]
+  stage: lint
+  script:
+    - golangci-lint run ./...
+
+unit_tests:
+  tags: ["meshplus"]
+  stage: test
+  script:
+    - go test -v ./...
+
+build:
+  tags: ["meshplus"]
+  stage: build
+  script:
+    - go build
