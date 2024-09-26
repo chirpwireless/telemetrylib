@@ -1,4 +1,4 @@
-module gitlab.com/chirpwireless/backend/telemetrylib
+module github.com/chirpwireless/telemetrylib
 
 go 1.22
 
