@@ -1,0 +1,22 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  # One build per PR, do not cancel builds on main
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: chirpwireless/reusable-github-actions/.github/workflows/build-go-library.yml@main
+    permissions:
+      contents: write
+    secrets: inherit
