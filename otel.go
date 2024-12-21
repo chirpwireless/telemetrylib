@@ -14,6 +14,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 )
 
+const otelEndpoint = "default-collector.opentelemetry-objects:4317"
+
 // SetupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
@@ -73,14 +75,14 @@ func newMeterProvider() (*metric.MeterProvider, error) {
 
 func newTracerProvider(ctx context.Context) (*trace.TracerProvider, error) {
 	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(),
-		otlptracegrpc.WithEndpoint("default-collector.opentelemetry-objects:4317"),
+		otlptracegrpc.WithEndpoint(otelEndpoint),
 	)
 
 	if err != nil {
 		return nil, err
 	}
 	return trace.NewTracerProvider(
-		trace.WithSampler(trace.NeverSample()),
+		trace.WithSampler(trace.TraceIDRatioBased(1.0)),
 		trace.WithSpanProcessor(trace.NewBatchSpanProcessor(traceExporter)),
 	), nil
 }
