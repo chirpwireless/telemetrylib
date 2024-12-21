@@ -7,12 +7,13 @@ import (
 	"os"
 )
 
-func InitLogger(options *slog.HandlerOptions) {
-	if options == nil {
-		options = &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		}
-	}
+func InitLogger() {
+	InitLoggerWithOptions(&slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+}
+
+func InitLoggerWithOptions(options *slog.HandlerOptions) {
 	jsonHandler := slog.NewJSONHandler(os.Stdout, options)
 	// Add span context attributes when Context is passed to logging calls.
 	instrumentedHandler := handlerWithSpanContext(jsonHandler)
