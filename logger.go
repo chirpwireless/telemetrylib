@@ -9,8 +9,7 @@ import (
 
 func InitLogger() {
 	jsonHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		ReplaceAttr: replacer,
-		Level:       slog.LevelInfo,
+		Level: slog.LevelInfo,
 	})
 	// Add span context attributes when Context is passed to logging calls.
 	instrumentedHandler := handlerWithSpanContext(jsonHandler)
@@ -47,22 +46,4 @@ func (t *spanContextLogHandler) Handle(ctx context.Context, record slog.Record) 
 		)
 	}
 	return t.Handler.Handle(ctx, record)
-}
-
-func replacer(groups []string, a slog.Attr) slog.Attr {
-	// Rename attribute keys to match Cloud Logging structured log format
-	switch a.Key {
-	case slog.LevelKey:
-		a.Key = "level"
-		// Map slog.Level string values to Cloud Logging LogSeverity
-		// https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
-		if level := a.Value.Any().(slog.Level); level == slog.LevelWarn {
-			a.Value = slog.StringValue("WARNING")
-		}
-	case slog.TimeKey:
-		a.Key = "timestamp"
-	case slog.MessageKey:
-		a.Key = "msg"
-	}
-	return a
 }
