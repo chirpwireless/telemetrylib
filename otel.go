@@ -18,7 +18,7 @@ const otelEndpoint = "default-collector.opentelemetry-objects:4317"
 
 // SetupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
+func SetupOTelSDK(ctx context.Context, traceSampleRate float64) (shutdown func(context.Context) error, err error) {
 	var shutdownFuncs []func(context.Context) error
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
@@ -48,7 +48,7 @@ func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, er
 	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
 	otel.SetMeterProvider(meterProvider)
 
-	tracerProvider, err := newTracerProvider(ctx)
+	tracerProvider, err := newTracerProvider(ctx, traceSampleRate)
 	if err != nil {
 		handleErr(err)
 		return
@@ -73,7 +73,7 @@ func newMeterProvider() (*metric.MeterProvider, error) {
 	return meterProvider, nil
 }
 
-func newTracerProvider(ctx context.Context) (*trace.TracerProvider, error) {
+func newTracerProvider(ctx context.Context, traceSampleRate float64) (*trace.TracerProvider, error) {
 	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithEndpoint(otelEndpoint),
 	)
@@ -82,7 +82,7 @@ func newTracerProvider(ctx context.Context) (*trace.TracerProvider, error) {
 		return nil, err
 	}
 	return trace.NewTracerProvider(
-		trace.WithSampler(trace.TraceIDRatioBased(1.0)),
+		trace.WithSampler(trace.ParentBased(trace.TraceIDRatioBased(traceSampleRate))),
 		trace.WithSpanProcessor(trace.NewBatchSpanProcessor(traceExporter)),
 	), nil
 }
