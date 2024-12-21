@@ -14,9 +14,46 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
+env:
+  HOME: ${{github.workspace}}
+
+permissions:
+  contents: write
+
 jobs:
   build:
-    uses: chirpwireless/reusable-github-actions/.github/workflows/build-go-library.yml@main
-    permissions:
-      contents: write
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache-dependency-path: 'go.sum'
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.GOLANG_BUILDER_APP_ID }}
+          private-key: ${{ secrets.GOLANG_BUILDER_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+      - name: Configure Git to use installation token
+        run: |
+          git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+      - name: Install dependencies
+        run: make install
+      - name: Run build
+        run: make build
+      - name: Run tests
+        run: make test
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
+      - name: Generate Version
+        id: version
+        uses: chirpwireless/reusable-github-actions/.github/actions/calendar-version@main
+      - name: Publish a new release
+        uses: chirpwireless/reusable-github-actions/.github/actions/publish-release@main
+        with:
+          version: ${{ steps.version.outputs.new_version }}
