@@ -17,6 +17,9 @@ concurrency:
 env:
   HOME: ${{github.workspace}}
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
