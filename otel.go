@@ -5,8 +5,8 @@ import (
 	"errors"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/contrib/propagators/autoprop"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/trace"
 	"time"
 
@@ -46,7 +46,7 @@ func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, er
 	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
 	otel.SetMeterProvider(meterProvider)
 
-	tracerProvider, err := newTracerProvider()
+	tracerProvider, err := newTracerProvider(ctx)
 	if err != nil {
 		handleErr(err)
 		return
@@ -71,8 +71,10 @@ func newMeterProvider() (*metric.MeterProvider, error) {
 	return meterProvider, nil
 }
 
-func newTracerProvider() (*trace.TracerProvider, error) {
-	traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+func newTracerProvider(ctx context.Context) (*trace.TracerProvider, error) {
+	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint("default-collector.opentelemetry-objects:4317"),
+	)
 
 	if err != nil {
 		return nil, err

@@ -7,11 +7,13 @@ import (
 	"os"
 )
 
-func InitLogger() {
-	jsonHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		ReplaceAttr: replacer,
-		Level:       slog.LevelInfo,
-	})
+func InitLogger(options *slog.HandlerOptions) {
+	if options == nil {
+		options = &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}
+	}
+	jsonHandler := slog.NewJSONHandler(os.Stdout, options)
 	// Add span context attributes when Context is passed to logging calls.
 	instrumentedHandler := handlerWithSpanContext(jsonHandler)
 	// Set this handler as the global slog handler.
@@ -34,35 +36,17 @@ func (t *spanContextLogHandler) Handle(ctx context.Context, record slog.Record) 
 	// Get the SpanContext from the golang Context.
 	spanContext := trace.SpanContextFromContext(ctx)
 	if spanContext.IsValid() {
-		// Add trace context attributes following Cloud Logging structured log format described
-		// in https://cloud.google.com/logging/docs/structured-logging#special-payload-fields
+		// Add trace context attributes following OpenTelemetry structured log format described
+		// in https://opentelemetry.io/docs/concepts/signals/traces/
 		record.AddAttrs(
-			slog.Any("logging.googleapis.com/trace", spanContext.TraceID()),
+			slog.Any("trace_id", spanContext.TraceID()),
 		)
 		record.AddAttrs(
-			slog.Any("logging.googleapis.com/spanId", spanContext.SpanID()),
+			slog.Any("span_id", spanContext.SpanID()),
 		)
 		record.AddAttrs(
-			slog.Bool("logging.googleapis.com/trace_sampled", spanContext.TraceFlags().IsSampled()),
+			slog.Bool("trace_sampled", spanContext.TraceFlags().IsSampled()),
 		)
 	}
 	return t.Handler.Handle(ctx, record)
-}
-
-func replacer(groups []string, a slog.Attr) slog.Attr {
-	// Rename attribute keys to match Cloud Logging structured log format
-	switch a.Key {
-	case slog.LevelKey:
-		a.Key = "severity"
-		// Map slog.Level string values to Cloud Logging LogSeverity
-		// https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
-		if level := a.Value.Any().(slog.Level); level == slog.LevelWarn {
-			a.Value = slog.StringValue("WARNING")
-		}
-	case slog.TimeKey:
-		a.Key = "timestamp"
-	case slog.MessageKey:
-		a.Key = "message"
-	}
-	return a
 }
