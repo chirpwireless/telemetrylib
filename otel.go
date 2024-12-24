@@ -5,8 +5,8 @@ import (
 	"errors"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/contrib/propagators/autoprop"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/prometheus"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/trace"
 	"time"
 
@@ -14,9 +14,11 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 )
 
+const otelEndpoint = "default-collector.opentelemetry-objects:4317"
+
 // SetupOTelSDK bootstraps the OpenTelemetry pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
-func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
+func SetupOTelSDK(ctx context.Context, traceSampleRate float64) (shutdown func(context.Context) error, err error) {
 	var shutdownFuncs []func(context.Context) error
 
 	// shutdown calls cleanup functions registered via shutdownFuncs.
@@ -46,7 +48,7 @@ func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, er
 	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
 	otel.SetMeterProvider(meterProvider)
 
-	tracerProvider, err := newTracerProvider()
+	tracerProvider, err := newTracerProvider(ctx, traceSampleRate)
 	if err != nil {
 		handleErr(err)
 		return
@@ -71,14 +73,16 @@ func newMeterProvider() (*metric.MeterProvider, error) {
 	return meterProvider, nil
 }
 
-func newTracerProvider() (*trace.TracerProvider, error) {
-	traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+func newTracerProvider(ctx context.Context, traceSampleRate float64) (*trace.TracerProvider, error) {
+	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint(otelEndpoint),
+	)
 
 	if err != nil {
 		return nil, err
 	}
 	return trace.NewTracerProvider(
-		trace.WithSampler(trace.NeverSample()),
+		trace.WithSampler(trace.ParentBased(trace.TraceIDRatioBased(traceSampleRate))),
 		trace.WithSpanProcessor(trace.NewBatchSpanProcessor(traceExporter)),
 	), nil
 }
